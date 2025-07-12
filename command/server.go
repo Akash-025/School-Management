@@ -1,10 +1,11 @@
 package main
 
 import (
-	
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"strings"
+	"restapi/internal/api/middlewares"
 )
 
 type user struct{
@@ -103,14 +104,30 @@ func execsHandler( w http.ResponseWriter, r *http.Request)  {
 func main() {
 	port := ":3000"
 
-	http.HandleFunc("/", rootHandler)
-	http.HandleFunc("/students/", studentHandler)
-	http.HandleFunc("/teachers/", teachersHandler)
-	http.HandleFunc("/execs/", execsHandler)
+	cert := "cert.pem"
+	key := "key.pem"
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", rootHandler)
+	mux.HandleFunc("/students/", studentHandler)
+	mux.HandleFunc("/teachers/", teachersHandler)
+	mux.HandleFunc("/execs/", execsHandler)
+
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+
+	//Create custom server
+	server := &http.Server{
+		Addr: port,
+		Handler: middlewares.Cors(mux),
+		TLSConfig: tlsConfig,
+	}
 
 	fmt.Println("Server is running on port",port)
 
-	err := http.ListenAndServe(port, nil)
+	err := server.ListenAndServeTLS(cert,key)
 	if err != nil {
 		
 	}
