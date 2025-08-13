@@ -1,0 +1,9 @@
+{
+    "go.formatOnSave": true,
+"go.useLanguageServer": true,
+"go.lintOnSave": "package",
+"go.autocompleteUnimportedPackages": true
+
+
+
+}

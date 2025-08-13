@@ -4,131 +4,64 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"strings"
+	"os"
 	"restapi/internal/api/middlewares"
+	"restapi/internal/api/router"
+	"restapi/internal/repositories/sqlconnect"
+	"restapi/pkg/utils"
+	"time"
 )
 
-type user struct{
+type user struct {
 	Name string `json:"name"`
-	Age string `json:"age"`
+	Age  string `json:"age"`
 	City string `jsong:"city"`
 }
 
-
-func rootHandler( w http.ResponseWriter, r *http.Request)  {
-		w.Write([]byte("Hello Root route"))
-		fmt.Println("Hello root route")
-		fmt.Println(r.Method)
-	}
-
-func studentHandler( w http.ResponseWriter, r *http.Request)  {
-		
-		switch r.Method {
-		case http.MethodPost :
-			w.Write([]byte("Hello get method on students route"))
-		    fmt.Println("Hello get method on students route")
-		case http.MethodGet :
-			w.Write([]byte("Hello post method on students route"))
-		    fmt.Println("Hello post method on students route")
-		case http.MethodPut :
-			w.Write([]byte("Hello put method on students route"))
-		    fmt.Println("Hello put method on students route")
-		case http.MethodPatch :
-			w.Write([]byte("Hello patch method on students route"))
-		    fmt.Println("Hello patch method on students route")
-		case http.MethodDelete :
-			w.Write([]byte("Hello delete method on students route"))
-		    fmt.Println("Hello delete method on students route")
-
-		}
-	}
-
-func teachersHandler( w http.ResponseWriter, r *http.Request)  {
-		
-		switch r.Method {
-		case http.MethodGet :
-
-			path := strings.TrimPrefix(r.URL.Path, "/teachers/")
-			pathID := strings.TrimSuffix(path, "/")
-			fmt.Println("ID is: ", pathID)
-
-			queryParams := r.URL.Query()
-			sortBy := queryParams.Get("sortBy")
-			key := queryParams.Get("key")
-			sortorder := queryParams.Get("sortorder")
-
-			fmt.Printf("SortBy: %v, Key: %v, SortOrder: %v\n", sortBy, key, sortorder)
-			
-
-			w.Write([]byte("Hello get method on teachers route"))
-		    fmt.Println("Hello get method on teachers route")
-		case http.MethodPost :
-			w.Write([]byte("Hello post method on teachers route"))
-		    fmt.Println("Hello post method on teachers route")
-		case http.MethodPut :
-			w.Write([]byte("Hello put method on teachers route"))
-		    fmt.Println("Hello put method on teachers route")
-		case http.MethodPatch :
-			w.Write([]byte("Hello patch method on teachers route"))
-		    fmt.Println("Hello patch method on teachers route")
-		case http.MethodDelete :
-			w.Write([]byte("Hello delete method on teachers route"))
-		    fmt.Println("Hello delete method on teachers route")
-
-		}
-	}	
-
-func execsHandler( w http.ResponseWriter, r *http.Request)  {
-		
-		switch r.Method {
-		case http.MethodPost :
-			w.Write([]byte("Hello post method on execs route"))
-		    fmt.Println("Hello post method on execs route")
-		case http.MethodGet :
-			w.Write([]byte("Hello get method on execs route"))
-		    fmt.Println("Hello get method on execs route")
-		case http.MethodPut :
-			w.Write([]byte("Hello put method on execs route"))
-		    fmt.Println("Hello put method on execs route")
-		case http.MethodPatch :
-			w.Write([]byte("Hello patch method on execs route"))
-		    fmt.Println("Hello patch method on execs route")
-		case http.MethodDelete :
-			w.Write([]byte("Hello delete method on execs route"))
-		    fmt.Println("Hello delete method on execs route")
-
-		}
-	}
-	
-
 func main() {
-	port := ":3000"
+
+	_, err := sqlconnect.ConnectDb()
+	if err != nil {
+		fmt.Println("Error-----")
+		return 
+	}
+
+	
+	port := os.Getenv("API_PORT")    //From environment variable
 
 	cert := "cert.pem"
 	key := "key.pem"
 
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/", rootHandler)
-	mux.HandleFunc("/students/", studentHandler)
-	mux.HandleFunc("/teachers/", teachersHandler)
-	mux.HandleFunc("/execs/", execsHandler)
-
+	
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 	}
 
+	rl := middlewares.NewRateLimiter(5, time.Minute)
+
+	hppOptions := middlewares.HPPoptions{
+		CheckQuery:              true,
+		CheckBody:               true,
+		CheckBodyOnlyForContent: "application/x-www-form-urlencoded",
+		WhiteList:               []string{"sortOrder", "sortBy", "name"},
+	}
+	//router := router.Router()
+	mux := router.Router()
+	//secureMux := middlewares.Cors(rl.Middleware(middlewares.ResponseTimeMiddlware(middlewares.SecurityHeaders(middlewares.CompressionMiddlware(middlewares.Hpp(hppOptions)(mux))))))
+	secureMux := utils.ApplyMiddlewares(mux, middlewares.Hpp(hppOptions), middlewares.CompressionMiddlware, middlewares.SecurityHeaders, middlewares.ResponseTimeMiddlware, rl.Middleware, middlewares.Cors)
 	//Create custom server
 	server := &http.Server{
-		Addr: port,
-		Handler: middlewares.Cors(mux),
+		Addr:      port,
+		Handler:   secureMux,
 		TLSConfig: tlsConfig,
 	}
 
-	fmt.Println("Server is running on port",port)
+	fmt.Println("Server is running on port", port)
 
-	err := server.ListenAndServeTLS(cert,key)
+	err = server.ListenAndServeTLS(cert, key)
 	if err != nil {
-		
+
 	}
 }
+
+// Middleware is a function that wraps an http.Handler with additional functionality
