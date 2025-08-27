@@ -8,6 +8,7 @@ import (
 	"reflect"
 	teacher "restapi/internal/models"
 	"restapi/internal/repositories/sqlconnect"
+	"restapi/pkg/utils"
 	"strconv"
 	"strings"
 	"sync"
@@ -159,7 +160,7 @@ func AddTeachersHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("New Teacher: ", newTeachers)
 
 	var teach teacher.Teacher
-	stmt, err := db.Prepare(generateInsertQuery(teach))
+	stmt, err := db.Prepare(utils.GenerateInsertQuery("teachers", teach))
 	if err != nil {
 		http.Error(w, "Error to prepare db connection", http.StatusInternalServerError)
 		return
@@ -203,45 +204,45 @@ func AddTeachersHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+	}
 
-		addedTeachers := make([]teacher.Teacher, len(newTeachers))
+	addedTeachers := make([]teacher.Teacher, len(newTeachers))
 
-		for i, newTeacher := range newTeachers {
+	for i, newTeacher := range newTeachers {
 
-			values := getStructValues(newTeacher)
-			res, err := stmt.Exec(values...)
-			if err != nil {
-				http.Error(w, "Error to execute db operation", http.StatusInternalServerError)
-				return
-			}
-
-			lastID, err := res.LastInsertId()
-			if err != nil {
-				http.Error(w, "Error for lastID", http.StatusInternalServerError)
-				return
-			}
-			newTeacher.ID = int(lastID)
-			addedTeachers[i] = newTeacher
-
-		}
-
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-
-		response := struct {
-			Status string            `json:"status"`
-			Count  int               `json:"count"`
-			Data   []teacher.Teacher `json:"data"`
-		}{
-			Status: "success",
-			Count:  len(addedTeachers),
-			Data:   addedTeachers,
-		}
-
-		err = json.NewEncoder(w).Encode(response)
+		values := utils.GetStructValues(newTeacher)
+		res, err := stmt.Exec(values...)
 		if err != nil {
+			http.Error(w, "Error to execute db operation", http.StatusInternalServerError)
 			return
 		}
+
+		lastID, err := res.LastInsertId()
+		if err != nil {
+			http.Error(w, "Error for lastID", http.StatusInternalServerError)
+			return
+		}
+		newTeacher.ID = int(lastID)
+		addedTeachers[i] = newTeacher
+
+	}
+
+	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	response := struct {
+		Status string            `json:"status"`
+		Count  int               `json:"count"`
+		Data   []teacher.Teacher `json:"data"`
+	}{
+		Status: "success",
+		Count:  len(addedTeachers),
+		Data:   addedTeachers,
+	}
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		return
 	}
 }
 
@@ -365,7 +366,20 @@ func DeleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	db.Exec("DELETE FROM teachers WHERE id=?", id)
+	result, err := db.Exec("DELETE FROM teachers WHERE id=?", id)
+	if err != nil {
+
+		http.Error(w, "Error deleting from db", http.StatusInternalServerError)
+		return
+	}
+	rowsAffect, err := result.RowsAffected()
+	if err != nil {
+		return
+	}
+	if rowsAffect == 0 {
+		http.Error(w, "Teacher Not Found", http.StatusNotFound)
+		return
+	}
 
 	response := struct {
 		Status string `json:"status"`
@@ -374,40 +388,4 @@ func DeleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(response)
-}
-
-func generateInsertQuery(model interface{}) string {
-	modelType := reflect.TypeOf(model)
-	var column, placeholder string
-
-	for i := 0; i < modelType.NumField(); i++ {
-		dbTag := modelType.Field(i).Tag.Get("db")
-		dbTag = strings.TrimSuffix(dbTag, ",omitempty")
-		if dbTag != "" && dbTag != "id" {
-			if column != "" {
-				column += ", "
-				placeholder += ", "
-			}
-			column += dbTag
-			placeholder += "?"
-		}
-
-	}
-
-	return fmt.Sprintf("INSERT INTO teachers (%s) VALUES(%s)", column, placeholder)
-}
-
-func getStructValues(model interface{}) []interface{} {
-	modelVal := reflect.ValueOf(model)
-	modelType := modelVal.Type()
-
-	values := []interface{}{}
-
-	for i := 0; i < modelType.NumField(); i++ {
-		dbTag := modelType.Field(i).Tag.Get("db")
-		if dbTag != "" && dbTag != "id,omitempty" {
-			values = append(values, modelVal.Field(i).Interface())
-		}
-	}
-	return values
 }
