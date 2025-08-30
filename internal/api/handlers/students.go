@@ -51,6 +51,7 @@ func GetStudentsHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Value: ", value)
 
 	}
+	fmt.Println("query:",query,"Arg", args)
 	// query += " AND " + "first_name" + " = ?"
 	// args = append(args, "first_name")
 
@@ -59,6 +60,7 @@ func GetStudentsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Database query error", http.StatusInternalServerError)
 		return
 	}
+	fmt.Println("ROws1:", rows)
 	defer rows.Close()
 	teachersList := make([]teacher.Student, 0)
 	//teachersList := []teacher.Student{}
@@ -66,6 +68,7 @@ func GetStudentsHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var teacher teacher.Student
 		err := rows.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class)
+		fmt.Println("ROws:", teacher)
 		if err != nil {
 			http.Error(w, "Database scanning error", http.StatusInternalServerError)
 			return
@@ -387,6 +390,53 @@ func DeleteStudentHandler(w http.ResponseWriter, r *http.Request) {
 		Status string `json:"status"`
 	}{
 		Status: "Successfully Deleted",
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+func GetStudentsByTeacherId(w http.ResponseWriter, r *http.Request){
+
+	db, err := sqlconnect.ConnectDb()
+	if err != nil {
+		http.Error(w, "Error connecting to db", http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return 
+	}
+
+	query := "SELECT first_name, last_name, email, class FROM students WHERE class = (SELECT class FROM teachers WHERE id = ?)"
+	rows, err := db.Query(query, id)
+	if err != nil {
+		http.Error(w, "DB query error", http.StatusInternalServerError)
+		return
+	}
+	var students []teacher.Student
+
+	for rows.Next(){
+		var student teacher.Student
+		err = rows.Scan(&student.FirstName, &student.LastName, &student.Email, &student.Class)
+		if err != nil {
+			http.Error(w, "DB scanning error", http.StatusInternalServerError)
+			return
+		}
+		
+		students = append(students, student)
+	}
+
+	response := struct{
+		Status string
+		Count int
+		Data []teacher.Student
+	}{
+		Status: "Successful",
+		Count: len(students),
+		Data: students,
 	}
 
 	json.NewEncoder(w).Encode(response)

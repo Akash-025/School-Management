@@ -23,13 +23,20 @@ func GenerateInsertQuery(table string, model interface{}) string {
 		}
 
 	}
+	fmt.Printf("INSERT INTO %s (%s) VALUES(%s)\n",table, column, placeholder)
 
 	return fmt.Sprintf("INSERT INTO %s (%s) VALUES(%s)",table, column, placeholder)
 }
 
 func GetStructValues(model interface{}) []interface{} {
+
 	modelVal := reflect.ValueOf(model)
 	modelType := modelVal.Type()
+
+	if modelType.Kind() == reflect.Ptr {
+		modelVal = modelVal.Elem()
+		modelType = modelType.Elem()
+	}
 
 	values := []interface{}{}
 
@@ -39,5 +46,6 @@ func GetStructValues(model interface{}) []interface{} {
 			values = append(values, modelVal.Field(i).Interface())
 		}
 	}
+	fmt.Println("Values:", values)
 	return values
 }
