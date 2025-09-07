@@ -29,6 +29,24 @@ func GetStudentsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
+	fmt.Println("Request URI:", r.RequestURI)
+fmt.Println("RawQuery:", r.URL.RawQuery)
+fmt.Println("Query map:", r.URL.Query())
+
+
+	// Pagination
+
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil {
+		page = 1
+	}
+	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+	if err != nil {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+	fmt.Println("Pagination: ", page, limit)
+
 	query := "SELECT id, first_name, last_name, email, class FROM students WHERE 1=1"
 	var args []interface{}
 
@@ -51,7 +69,9 @@ func GetStudentsHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Value: ", value)
 
 	}
-	fmt.Println("query:",query,"Arg", args)
+	query += " LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+	fmt.Println("query:", query, "Arg", args)
 	// query += " AND " + "first_name" + " = ?"
 	// args = append(args, "first_name")
 
@@ -77,12 +97,16 @@ func GetStudentsHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 	respone := struct {
-		Status string            `json:"status"`
-		Count  int               `json:"count"`
-		Data   []teacher.Student `json:"data"`
+		Status   string            `json:"status"`
+		Count    int               `json:"count"`
+		Page     int               `json:"page"`
+		PageSize int               `json:"page_size"`
+		Data     []teacher.Student `json:"data"`
 	}{
 		Status: "Success",
 		Count:  len(teachersList),
+		Page:   page,
+		PageSize: limit,
 		Data:   teachersList,
 	}
 	fmt.Println(respone)
@@ -275,7 +299,7 @@ func PatchStudentsHandler(w http.ResponseWriter, r *http.Request) {
 	for _, update := range updates {
 		idStr, ok := update["id"].(string)
 		if !ok {
-			fmt.Println("Error for id:",ok)
+			fmt.Println("Error for id:", ok)
 		}
 
 		id, err := strconv.Atoi(idStr)
@@ -333,8 +357,8 @@ func PatchStudentsHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		_, err = tx.Exec("UPDATE students SET first_name = ?, last_name = ?, email = ?, class = ? WHERE id = ?", 
-		teacherDb.FirstName, teacherDb.LastName, teacherDb.Email, teacherDb.Class, teacherDb.ID)
+		_, err = tx.Exec("UPDATE students SET first_name = ?, last_name = ?, email = ?, class = ? WHERE id = ?",
+			teacherDb.FirstName, teacherDb.LastName, teacherDb.Email, teacherDb.Class, teacherDb.ID)
 		if err != nil {
 			http.Error(w, "Executing err", http.StatusInternalServerError)
 			return
@@ -395,7 +419,7 @@ func DeleteStudentHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func GetStudentsByTeacherId(w http.ResponseWriter, r *http.Request){
+func GetStudentsByTeacherId(w http.ResponseWriter, r *http.Request) {
 
 	db, err := sqlconnect.ConnectDb()
 	if err != nil {
@@ -407,7 +431,7 @@ func GetStudentsByTeacherId(w http.ResponseWriter, r *http.Request){
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		return 
+		return
 	}
 
 	query := "SELECT first_name, last_name, email, class FROM students WHERE class = (SELECT class FROM teachers WHERE id = ?)"
@@ -418,25 +442,25 @@ func GetStudentsByTeacherId(w http.ResponseWriter, r *http.Request){
 	}
 	var students []teacher.Student
 
-	for rows.Next(){
+	for rows.Next() {
 		var student teacher.Student
 		err = rows.Scan(&student.FirstName, &student.LastName, &student.Email, &student.Class)
 		if err != nil {
 			http.Error(w, "DB scanning error", http.StatusInternalServerError)
 			return
 		}
-		
+
 		students = append(students, student)
 	}
 
-	response := struct{
+	response := struct {
 		Status string
-		Count int
-		Data []teacher.Student
+		Count  int
+		Data   []teacher.Student
 	}{
 		Status: "Successful",
-		Count: len(students),
-		Data: students,
+		Count:  len(students),
+		Data:   students,
 	}
 
 	json.NewEncoder(w).Encode(response)

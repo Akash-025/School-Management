@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"restapi/internal/models"
 	teacher "restapi/internal/models"
 	"restapi/internal/repositories/sqlconnect"
 	"restapi/pkg/utils"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func GetExecsHandler(w http.ResponseWriter, r *http.Request) {
@@ -179,6 +181,7 @@ func AddExecsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// All Fields are required
 	for _, teacher := range newTeachers {
+
 		val := reflect.ValueOf(teacher)
 		for i := 0; i < val.NumField(); i++ {
 			field := val.Field(i)
@@ -219,6 +222,15 @@ func AddExecsHandler(w http.ResponseWriter, r *http.Request) {
 	addedTeachers := make([]teacher.Exec, len(newTeachers))
 
 	for i, newTeacher := range newTeachers {
+
+		// Password Hashing
+		if newTeacher.Password != "" {
+			pass, err := utils.HashPassword(newTeacher.Password, w)
+			if err != nil {
+				return
+			}
+			newTeacher.Password = pass
+		}
 
 		values := utils.GetStructValues(newTeacher)
 		res, err := stmt.Exec(values...)
@@ -406,6 +418,134 @@ func DeleteExecHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(response)
+}
+
+func LoginExecsHandler(w http.ResponseWriter, r *http.Request) {
+	var user teacher.Exec
+	json.NewDecoder(r.Body).Decode(&user)
+
+	username := user.Username
+	inputPassword := user.Password
+
+	userFromDb, NotOk := sqlconnect.LoginDb(w, username)
+	if NotOk {
+		return
+	}
+
+	// Password checking
+	msg, NotOk := utils.PasswordCheck(userFromDb.Password, w, inputPassword)
+	if NotOk {
+		http.Error(w, "Password is incorrect", http.StatusForbidden)
+		return
+	}
+	// Cookie
+	tokenString, err := utils.SignToken(user.ID, user.Username, user.Role)
+	if err != nil {
+		return 
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "Bearer",
+		Value:    tokenString,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		Expires:  time.Now().Add(100 * time.Second),
+		SameSite: http.SameSiteStrictMode,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "Test",
+		Value:    "Testing",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		Expires:  time.Now().Add(10 * time.Second),
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	response := struct {
+		Token string `json:"token"`
+	}{
+		Token: tokenString,
+	}
+
+
+	fmt.Println(msg)
+	// response := struct {
+	// 	Message string `json:"message"`
+	// }{
+	// 	Message: msg,
+	// }
+	json.NewEncoder(w).Encode(response)
+
+}
+
+func LogoutExecsHandler(w http.ResponseWriter, r *http.Request){
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "Bearer",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		Expires:  time.Now().Add(10 * time.Second),
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"message": "Successfully Logged out")}`))
+}
+
+func UpdatePasswordExecHandler(w http.ResponseWriter, r *http.Request){
+
+	// var upPass struct{
+	// 	username string `json:"username"`
+	// 	currentPasswor string `json:"currentpassword"`
+	// 	newPassword string `json:"newpassword"`
+	// }
+	var upPass models.UpdatePasswordReq
+	fmt.Println("UpPass:", upPass)
+	json.NewDecoder(r.Body).Decode(&upPass)
+
+	db, err := sqlconnect.ConnectDb()
+	if err != nil {
+		http.Error(w, "Error connecting to db", http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	var execs teacher.Exec
+	db.QueryRow("SELECT password FROM execs WHERE username = ?", upPass.Username).Scan(&execs.Password)
+
+	passwordFromDb := execs.Password
+
+	_, NotOk := utils.PasswordCheck(passwordFromDb, w, upPass.CurrentPassword)
+	if NotOk {
+		http.Error(w, "The password you entered is incorrect", http.StatusForbidden)
+		return
+	}
+
+	hashedPassword, err := utils.HashPassword(upPass.NewPassword, w)
+	if err != nil {
+		http.Error(w, "Password hashing error", http.StatusInternalServerError)
+		return 
+	}
+
+	_, err = db.Exec("UPDATE execs SET password = ? WHERE username = ?", hashedPassword, upPass.Username)
+	if err != nil {
+		http.Error(w, "Password update query error", http.StatusInternalServerError)
+		return
+	}
+
+	respone := struct{
+		Status string `json:"status"`
+		Message string `json:"message"`
+	}{
+		Status: "Success",
+		Message: "Password successfully updated",
+	}
+
+	json.NewEncoder(w).Encode(respone)
+
 }
 
 func GenerateInsertQueryforExec(table string, model interface{}) string {

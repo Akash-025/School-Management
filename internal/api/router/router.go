@@ -36,10 +36,10 @@ func Router() *http.ServeMux {
 	mux.HandleFunc("PATCH /execs", handlers.PatchExecsHandler)
 	mux.HandleFunc("DELETE /execs/{id}", handlers.DeleteExecHandler)
 
-	mux.HandleFunc("POST /execs/{id}/updatepassword", handlers.DeleteStudentHandler)
+	mux.HandleFunc("POST /execs/{id}/updatepassword", handlers.UpdatePasswordExecHandler)
 
-	mux.HandleFunc("POST /execs/login", handlers.PatchStudentsHandler)	
-	mux.HandleFunc("POST /execs/logout", handlers.PatchStudentsHandler)	
+	mux.HandleFunc("POST /execs/login", handlers.LoginExecsHandler)	
+	mux.HandleFunc("POST /execs/logout", handlers.LogoutExecsHandler)	
 	mux.HandleFunc("POST /execs/forgotpassword", handlers.PatchStudentsHandler)	
 	mux.HandleFunc("POST /execs/resetpassword/reset/{resetcode}", handlers.PatchStudentsHandler)	
 

@@ -16,3 +16,9 @@ type Exec struct {
 	InactiveStatus      bool           `json:"inactive_status,omitempty" db:"inactive_status,omitempty"`
 	Role                string         `json:"role,omitempty" db:"role,omitempty"`
 }
+
+type UpdatePasswordReq struct{
+	Username string `json:"username"`
+	CurrentPassword string `json:"currentpassword"`
+	NewPassword string `json:"newpassword"`
+}
