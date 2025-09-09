@@ -427,6 +427,16 @@ func LoginExecsHandler(w http.ResponseWriter, r *http.Request) {
 	username := user.Username
 	inputPassword := user.Password
 
+	db, err := sqlconnect.ConnectDb()
+	if err != nil {
+		http.Error(w, "Error connecting to db", http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	var role string
+	db.QueryRow("SELECT role FROM execs WHERE username = ?", username).Scan(&role)
+
 	userFromDb, NotOk := sqlconnect.LoginDb(w, username)
 	if NotOk {
 		return
@@ -439,7 +449,7 @@ func LoginExecsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Cookie
-	tokenString, err := utils.SignToken(user.ID, user.Username, user.Role)
+	tokenString, err := utils.SignToken(user.ID, user.Username, role)
 	if err != nil {
 		return 
 	}

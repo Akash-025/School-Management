@@ -30,9 +30,8 @@ func GetStudentsHandler(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	fmt.Println("Request URI:", r.RequestURI)
-fmt.Println("RawQuery:", r.URL.RawQuery)
-fmt.Println("Query map:", r.URL.Query())
-
+	fmt.Println("RawQuery:", r.URL.RawQuery)
+	fmt.Println("Query map:", r.URL.Query())
 
 	// Pagination
 
@@ -103,11 +102,11 @@ fmt.Println("Query map:", r.URL.Query())
 		PageSize int               `json:"page_size"`
 		Data     []teacher.Student `json:"data"`
 	}{
-		Status: "Success",
-		Count:  len(teachersList),
-		Page:   page,
+		Status:   "Success",
+		Count:    len(teachersList),
+		Page:     page,
 		PageSize: limit,
-		Data:   teachersList,
+		Data:     teachersList,
 	}
 	fmt.Println(respone)
 
@@ -420,6 +419,13 @@ func DeleteStudentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetStudentsByTeacherId(w http.ResponseWriter, r *http.Request) {
+
+	_, err := utils.AuthorizeUser(r.Context().Value(utils.ContextKey("role")).(string), "admin", "manager", "exec", "moderator")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("ROle", r.Context().Value(utils.ContextKey("role")).(string))
 
 	db, err := sqlconnect.ConnectDb()
 	if err != nil {

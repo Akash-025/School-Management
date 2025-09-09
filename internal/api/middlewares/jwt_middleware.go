@@ -1,10 +1,12 @@
 package middlewares
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"restapi/pkg/utils"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -45,12 +47,18 @@ func JWTMiddleware(next http.Handler) http.Handler {
 			fmt.Println("Invalid JWT")
 		}
 
-		if claims, ok := parsedToken.Claims.(jwt.MapClaims); ok {
+		claims, ok := parsedToken.Claims.(jwt.MapClaims)
+		if  ok {
 			fmt.Println(claims["uid"], claims["exp"], claims["role"])
 		} else {
 			fmt.Println(err)
 		}
 
-		next.ServeHTTP(w, r)
+		ctx := context.WithValue(r.Context(), utils.ContextKey("role"), claims["role"])
+		ctx = context.WithValue(ctx, utils.ContextKey("expiresAt"), claims["exp"])
+		ctx = context.WithValue(ctx, utils.ContextKey("username"), claims["user"])
+		ctx = context.WithValue(ctx, utils.ContextKey("usserId"), claims["uid"])
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
