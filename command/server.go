@@ -44,7 +44,7 @@ func main() {
 		WhiteList:               []string{"sortOrder", "sortBy", "name"},
 	}
 	//router := router.Router()
-	mux := router.Router()
+	mux := router.MainRouter()
 	//secureMux := middlewares.Cors(rl.Middleware(middlewares.ResponseTimeMiddlware(middlewares.SecurityHeaders(middlewares.CompressionMiddlware(middlewares.Hpp(hppOptions)(mux))))))
 	secureMux := utils.ApplyMiddlewares(mux, middlewares.Hpp(hppOptions), middlewares.CompressionMiddlware, middlewares.SecurityHeaders, middlewares.ResponseTimeMiddlware, rl.Middleware, middlewares.Cors)
 	//secureMux = middlewares.JWTMiddleware(secureMux)

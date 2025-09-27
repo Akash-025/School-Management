@@ -7,7 +7,11 @@ import (
 )
 
 func GenerateInsertQuery(table string, model interface{}) string {
+	
 	modelType := reflect.TypeOf(model)
+	if modelType.Kind() == reflect.Ptr {
+		modelType = modelType.Elem()
+	}
 	var column, placeholder string
 
 	for i := 0; i < modelType.NumField(); i++ {
