@@ -10,7 +10,6 @@ It provides APIs for managing **students, teachers, and execs (admins/staff)** a
 - MySQL-backed data storage.
 - CRUD operations for Students, Teachers, and Execs.
 - Authentication: login, logout, password reset.
-- Graceful shutdown handling (`SIGINT`, `SIGTERM`).
 - Modular, clean architecture (`internal` & `pkg` separation).
 
 ---
@@ -23,37 +22,38 @@ It provides APIs for managing **students, teachers, and execs (admins/staff)** a
 
 ## ⚙️ Setup & Run
 
-### 1. Clone the repo
+1. Clone the repo
 ```bash
 git clone https://github.com/your-username/school-management-system.git
 cd school-management-system
-
+````
 2. Setup MySQL Database
-
+```
 Install MySQL and start it.
-
-Create a database:  
+```
+   Create a database:
+```
 CREATE DATABASE school_mgmt;
-
-
-Import schema:
-
+```
+   Import schema:
+```
 mysql -u root -p school_mgmt < schema.sql
-
+```
 3. Configure Environment Variables
-
 Create a .env file in the root:
-
+```
 DB_USER=root
 DB_PASS=root
 DB_NAME=school_mgmt
 DB_HOST=localhost
 DB_PORT=3306
-
+```
 4. Run the App
+```
 go run command/main.go
-
+```
 📂 Project Structure
+```
 REST_API_GO/
 │── command/                  # Entrypoint (main.go)
 │── internal/
@@ -71,30 +71,28 @@ REST_API_GO/
 │── .env                      # Config (ignored in git)
 │── .gitignore
 │── openssl.cnf               # SSL config (if used)
-
+```
 ✅ API Endpoints
 
 👨‍🎓 Students
-
+```
 GET /students → Get all students
 GET /students/{id} → Get one student
 POST /students → Add new student
 PATCH /students → Update student
 DELETE /students/{id} → Delete student
 GET /teacher/{id}/students → Get students by teacher ID
-
-
+```
 👨‍🏫 Teachers
-
+```
 GET /teachers → Get all teachers
 GET /teachers/{id} → Get one teacher
 POST /teachers → Add new teacher
 PATCH /teachers → Update teacher
 DELETE /teachers/{id} → Delete teacher
-
-
+````
 🏫 Execs (Admins / Staff)
-
+````
 GET /execs → Get all execs
 GET /execs/{id} → Get one exec
 POST /execs → Add new exec
